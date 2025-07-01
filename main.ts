@@ -15,7 +15,7 @@ import { v1 as uuidv1 } from 'uuid'; // Import the v1 function from the uuid pac
 // This interface ensures type safety for the settings object.
 interface LastEditLineSettings {
 	isPluginEnabled: boolean; // A master switch to enable or disable the entire plugin.
-	identifierSource: 'plugin-generated-UUID' | 'user-provided-field'; // Determines how notes are uniquely identified.
+	identifierSource: 'plugin-generated-UUID' | 'user-provided-field' | 'file-path'; // Determines how notes are uniquely identified.
 	generatedIdName: string; // The frontmatter key to use when the plugin generates the UUID.
 	userProvidedIdName: string; // The frontmatter key to use when the user provides the identifier.
 	includedFolders: string; // A newline-separated string of folder paths where the plugin should be active.
@@ -110,24 +110,21 @@ export default class LastEditLinePlugin extends Plugin {
 	private async handleFileOpen(file: TFile | null) {
 		// Exit if no file is actually open.
 		if (!file) return;
-		// Exit if no ID field name is configured in the settings.
-		const idName = this.getCurrentIdName();
-		if (!idName) return;
 
-		// Get the unique ID for the file (from frontmatter).
-		const fileUUID = await this.ensureFileUUID(file);
-		if (!fileUUID) return;
+		// Get the unique ID for the file based on the current settings.
+		const uniqueIdentifier = await this.getUniqueIdentifier(file);
+		if (!uniqueIdentifier) return;
 
 		// Check if this file has already had its cursor restored in this session.
 		// If not, we proceed to restore it.
-		if (!this.restoredInCurrentSession.has(fileUUID)) {
+		if (!this.restoredInCurrentSession.has(uniqueIdentifier)) {
 			// Use a small timeout to ensure the editor is fully rendered and ready for cursor manipulation.
 			// 10ms is usually enough time for the UI to update.
 			setTimeout(() => {
 				this.restoreCursorPosition(file);
-				// Mark this file's UUID as "restored" for this session to prevent this logic from running again
+				// Mark this file's ID as "restored" for this session to prevent this logic from running again
 				// if the user switches back to this file.
-				this.restoredInCurrentSession.add(fileUUID);
+				this.restoredInCurrentSession.add(uniqueIdentifier);
 			}, 10);
 		}
 	}
@@ -197,13 +194,13 @@ export default class LastEditLinePlugin extends Plugin {
 		if (!this.isFileIncluded(file)) return;
 
 		// Get or create the unique ID for the file. This might involve writing to the file's frontmatter.
-		const fileUUID = await this.ensureFileUUID(file);
-		if (!fileUUID) return; // Exit if no ID could be found or created.
+		const uniqueIdentifier = await this.getUniqueIdentifier(file);
+		if (!uniqueIdentifier) return; // Exit if no ID could be found or created.
 
 		// Get the current cursor position from the editor.
 		const cursor = editor.getCursor();
 		// Store the entire cursor position object (line and character) in our settings, keyed by the file's unique ID.
-		this.settings.cursorPosition[fileUUID] = { line: cursor.line, ch: cursor.ch };
+		this.settings.cursorPosition[uniqueIdentifier] = { line: cursor.line, ch: cursor.ch };
 		
 		// Call the debounced save function to write the settings to disk, preventing excessive writes.
 		this.debouncedSave();
@@ -217,12 +214,12 @@ export default class LastEditLinePlugin extends Plugin {
 		// Check if the plugin is enabled and if the file is in an included folder.
 		if (!this.settings.isPluginEnabled || !this.isFileIncluded(file)) return;
 
-		// Get the file's unique ID from its frontmatter.
-		const fileUUID = await this.ensureFileUUID(file);
-		if (!fileUUID) return;
+		// Get the file's unique ID from its frontmatter or path.
+		const uniqueIdentifier = await this.getUniqueIdentifier(file);
+		if (!uniqueIdentifier) return;
 
 		// Retrieve the saved position object from settings using the file's ID.
-		const savedPosition = this.settings.cursorPosition[fileUUID];
+		const savedPosition = this.settings.cursorPosition[uniqueIdentifier];
 		// Get the active markdown view.
 		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
 
@@ -240,26 +237,33 @@ export default class LastEditLinePlugin extends Plugin {
 	}
 	
 	/**
-	 * Gets the currently active ID field name based on the user's settings.
-	 * @returns The active ID field name as a string (e.g., "uuid" or "created").
+	 * Gets the currently active ID field name based on the user's settings for frontmatter-based options.
+	 * @returns The active ID field name as a string (e.g., "uuid" or "created"). Returns empty string if not applicable.
 	 */
 	public getCurrentIdName(): string {
 		if (this.settings.identifierSource === 'plugin-generated-UUID') {
 			return this.settings.generatedIdName;
-		} else {
+		} else if (this.settings.identifierSource === 'user-provided-field') {
 			return this.settings.userProvidedIdName;
 		}
+		return ''; // Not applicable for 'file-path' source.
 	}
 
 	/**
-	 * Ensures a file has a unique ID. It gets the ID from a file's frontmatter. If it doesn't exist,
-	 * it creates one, but ONLY if the 'plugin-generated-UUID' source is selected in settings.
+	 * Gets or creates the unique identifier for a file based on the plugin's settings.
+	 * This can be the file's relative path or a value from its frontmatter.
 	 * @param file The file to process.
 	 * @returns A Promise that resolves to the unique ID of the file, or an empty string if none is found/created.
 	 */
-	private async ensureFileUUID(file: TFile): Promise<string> {
+	public async getUniqueIdentifier(file: TFile): Promise<string> {
+		// If the setting is to use the file path, simply return it.
+		if (this.settings.identifierSource === 'file-path') {
+			return file.path;
+		}
+
+		// Otherwise, we need to process the frontmatter.
 		const idName = this.getCurrentIdName();
-		if (!idName) return ''; // Return early if no ID field name is configured.
+		if (!idName) return ''; // Return early if no ID field name is configured for the selected frontmatter option.
 
 		let fileUUID = '';
 		// Use `processFrontMatter` to safely read and modify the file's metadata.
@@ -343,7 +347,7 @@ class LastEditLineSettingTab extends PluginSettingTab {
 		// Setting 1: Master enable/disable toggle for the plugin.
 		new Setting(containerEl)
 			.setName('Enable or disable the plugin')
-			.setDesc('This will be turned off automatically unless an ID name is specified.')
+			.setDesc('This will be turned off automatically if a required ID name is not specified.')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.isPluginEnabled)
 				.onChange((value) => {
@@ -355,12 +359,13 @@ class LastEditLineSettingTab extends PluginSettingTab {
 		// Setting 2: Dropdown to choose the source of the unique ID.
 		new Setting(containerEl)
 			.setName('Source')
-			.setDesc('Choose whether the plugin should generate a unique ID or use an existing field you provide. Then, give an id name in either of the following two options in accordance with this option.')
+			.setDesc('Choose the source for the unique note identifier.')
 			.addDropdown(dropdown => dropdown
 				.addOption('plugin-generated-UUID', 'Option A. Plugin generated UUID')
 				.addOption('user-provided-field', 'Option B. User provided field')
+				.addOption('file-path', 'Option C. File path')
 				.setValue(this.plugin.settings.identifierSource)
-				.onChange((value: 'plugin-generated-UUID' | 'user-provided-field') => {
+				.onChange((value: 'plugin-generated-UUID' | 'user-provided-field' | 'file-path') => {
 					this.plugin.settings.identifierSource = value;
 					// Re-render the entire settings tab to enable/disable the correct text field below.
 					this.display();
@@ -369,7 +374,7 @@ class LastEditLineSettingTab extends PluginSettingTab {
 		// Setting 3: Text input for the ID name when the plugin generates it.
 		new Setting(containerEl)
 			.setName('Option A. ID name for plugin generated UUID')
-			.setDesc("Give a field name in which's value the plugin will add the generated UUID. • Required when 'Source' is set to 'Option A. Plugin generated UUID'.")
+			.setDesc("Give a field name in which's value the plugin will add the generated UUID. • Required when 'Source' is set to 'Option A'.")
 			.addText(text => {
 				text
 					.setPlaceholder('e.g., uuid or uid or id')
@@ -382,7 +387,7 @@ class LastEditLineSettingTab extends PluginSettingTab {
 		// Setting 4: Text input for the ID name when the user provides it.
 		new Setting(containerEl)
 			.setName('Option B. ID name for user provided field')
-			.setDesc("Choose an existing field name from the front matter to use as an unique ID for the note (e.g., 'created', 'title'). • This option is for those who do not want to add UUID to the front matter. The plugin will not generate any field name or value. So, if the plugin cannot find the field name in the front matter, the plugin does not save the cursor position. • Required when 'Source' is set to 'Option B. User provided field name'.")
+			.setDesc("Choose an existing field name from the front matter to use as an unique ID for the note (e.g., 'created', 'title'). • The plugin will not generate any field name or value. If the field is not found, the cursor position will not be saved. • Required when 'Source' is set to 'Option B'.")
 			.addText(text => {
 				text
 					.setPlaceholder('e.g., created or title')
@@ -391,10 +396,16 @@ class LastEditLineSettingTab extends PluginSettingTab {
 					.setDisabled(this.plugin.settings.identifierSource !== 'user-provided-field')
 					.onChange(value => this.plugin.settings.userProvidedIdName = value.trim());
 			});
+		
+		// Setting 5: Description for Option C. This is purely informational.
+		new Setting(containerEl)
+			.setName('Option C. File path')
+			.setDesc("The plugin will use the note's relative path in the vault (e.g., 'folder/note.md') as the unique identifier. This is for those who does not use the front matter.");
+
 
 		containerEl.createEl('h2', { text: 'Specify where the plugin operates' });
 
-		// Setting 5: Text area for specifying which folders to include.
+		// Setting 6: Text area for specifying which folders to include.
 		new Setting(containerEl)
 			.setName('List folders')
 			.setDesc("Choose folders where the plugin will be active. Provide one path per line. \n• `Folder` includes only notes inside `Folder`.\n• `Folder/*` includes notes inside `Folder` and all its subfolders.\n• `/` includes only notes in the vault's root.\n• `*` includes all notes in the entire vault.\nIf this list is empty, the plugin will not function.")
@@ -409,43 +420,46 @@ class LastEditLineSettingTab extends PluginSettingTab {
 
 		containerEl.createEl('h2', { text: 'Manage data' });
 
-		// Setting 6: Button to clean up stale data from the settings file.
+		// Setting 7: Button to clean up stale data from the settings file.
 		new Setting(containerEl)
 			.setName('Clean up the unnecessary')
-			.setDesc("Remove saved line data for notes that no longer exist or are not in the 'Include folders' list above. Requires an 'ID name' to be set.")
+			.setDesc("Remove saved line data for notes that no longer exist or are not in the 'List folders' list above. • Beware. The stored identifiers other than the current ID set by the above 'source' option will be removed.")
 			.addButton(button => {
 				button
 					.setButtonText('Remove Now')
-					// The button is disabled if no ID name is configured, as it wouldn't know what to look for.
-					.setDisabled(!this.plugin.getCurrentIdName())
 					.onClick(async () => {
 						// Provide user feedback during the cleanup process.
 						button.setButtonText('Cleaning...').setDisabled(true);
 						
-						const idName = this.plugin.getCurrentIdName();
 						const allFiles = this.app.vault.getMarkdownFiles();
-						const validUUIDs = new Set<string>();
+						const validIdentifiers = new Set<string>();
+						const idName = this.plugin.getCurrentIdName();
 
-						// Step 1: Build a set of all valid UUIDs from existing and included files.
+						// Step 1: Build a set of all valid identifiers from existing and included files.
 						for (const file of allFiles) {
 							if (this.plugin.isFileIncluded(file)) {
-								// Use the metadata cache for performance instead of reading each file.
-								const cachedFrontmatter = this.plugin.app.metadataCache.getFileCache(file)?.frontmatter;
-								if (cachedFrontmatter && cachedFrontmatter[idName]) {
-									validUUIDs.add(String(cachedFrontmatter[idName]));
+								// Logic depends on the identifier source setting.
+								if (this.plugin.settings.identifierSource === 'file-path') {
+									validIdentifiers.add(file.path);
+								} else if (idName) { // For frontmatter-based options
+									// Use the metadata cache for performance instead of reading each file.
+									const cachedFrontmatter = this.plugin.app.metadataCache.getFileCache(file)?.frontmatter;
+									if (cachedFrontmatter && cachedFrontmatter[idName]) {
+										validIdentifiers.add(String(cachedFrontmatter[idName]));
+									}
 								}
 							}
 						}
 				
 						// Step 2: Iterate through the saved cursor positions.
-						const savedUUIDs = Object.keys(this.plugin.settings.cursorPosition);
+						const savedIdentifiers = Object.keys(this.plugin.settings.cursorPosition);
 						let cleanedCount = 0;
 				
-						for (const savedUUID of savedUUIDs) {
-							// If a saved UUID is not in our set of valid UUIDs, it's stale.
-							if (!validUUIDs.has(savedUUID)) {
+						for (const savedId of savedIdentifiers) {
+							// If a saved ID is not in our set of valid IDs, it's stale.
+							if (!validIdentifiers.has(savedId)) {
 								// Delete it from the settings object.
-								delete this.plugin.settings.cursorPosition[savedUUID];
+								delete this.plugin.settings.cursorPosition[savedId];
 								cleanedCount++;
 							}
 						}
@@ -465,11 +479,22 @@ class LastEditLineSettingTab extends PluginSettingTab {
 	 * It's the best place to save all changes.
 	 */
 	hide(): void {
-		// As a safeguard, if no ID name is configured for the currently active source,
-		// disable the plugin to prevent errors.
-		if (!this.plugin.getCurrentIdName()) {
+		const settings = this.plugin.settings;
+		const source = settings.identifierSource;
+		
+		// As a safeguard, if a frontmatter-based source is chosen but its ID name is empty,
+		// disable the plugin to prevent errors. This doesn't apply to the 'file-path' source.
+		let shouldDisable = false;
+		if (source === 'plugin-generated-UUID' && !settings.generatedIdName) {
+			shouldDisable = true;
+		} else if (source === 'user-provided-field' && !settings.userProvidedIdName) {
+			shouldDisable = true;
+		}
+
+		if (shouldDisable) {
 			this.plugin.settings.isPluginEnabled = false;
 		}
+
 		// Save all settings when the tab is closed.
 		this.plugin.saveSettings();
 	}
