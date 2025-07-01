@@ -22,21 +22,21 @@
 ### settings tab example
 ![settings.png](settings.png)
 
-### choose `source` option and give an `ID name` for the `unique identifier`
+#### choose `source` option and give an `ID name` for the `unique identifier`
 
 - `Option A. Plugin generated UUID`: If UUID is missing in the front matter, the plugin will automatically generate `UUID` for the note. (UUID version 1 of RFC 9562, one using timestamp, with an npm package `uuid`)
   - The form `unique identifier` will be this: `uuid: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`
 - `Option B. User provided field`: A user can choose exising field name to use as the `unique identifier`'s name, such as `title` or `createddatetime`. This option will not generate any field name or value but give an flexibility for those who does not want to add additional UUID to the front matter. So, if the plugin cannot find the name of the `unique indentifier` in the front matter, the plugin does not save nor restore the cursor position.
   - The form `unique identifier` will vary according to what a user chooses.
 
-### choose folders where the plugin operates
+#### choose folders where the plugin operates
 
 - `/` means the root of the vault.
 - `/*` means the rood and all the sub folders.
 - `folder` means the folder in the root.
 - `folder/*` means the folder and all its sub folders.
 
-### remove the unnecessary
+#### remove the unnecessary
 
 - A user can clean up the unnecessary data of position caused by moving notes out from the working folders or deleting them.
 
