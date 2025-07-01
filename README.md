@@ -24,8 +24,9 @@
 
 #### choose `source` option and give an `ID name` for the `unique identifier`
 
-- `Option A. Plugin generated UUID`: If UUID is missing in the front matter, the plugin will automatically generate `UUID` for the note. (UUID version 1 of RFC 9562, one using timestamp, with an npm package `uuid`)
+- `Option A. Plugin generated UUID`: If UUID is missing in the front matter, the plugin will automatically generate `UUID` for the note. 
   - The form `unique identifier` will be this: `uuid: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`
+  - UUID is [version 1 of RFC 9562](https://www.rfc-editor.org/rfc/rfc9562.html#name-uuid-version-1), one using timestamp, with an npm package `uuid` 
 - `Option B. User provided field`: A user can choose exising field name to use as the `unique identifier`'s name, such as `title` or `createddatetime`. This option will not generate any field name or value but give an flexibility for those who does not want to add additional UUID to the front matter. So, if the plugin cannot find the name of the `unique indentifier` in the front matter, the plugin does not save nor restore the cursor position.
   - The form `unique identifier` will vary according to what a user chooses.
 
