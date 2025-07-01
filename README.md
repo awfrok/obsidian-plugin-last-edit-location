@@ -1,94 +1,47 @@
-# Obsidian Sample Plugin
+# Last Edit Position, a plugin for obsidian
 
-This is a sample plugin for Obsidian (https://obsidian.md).
+## what task the plugin carries out
 
-This project uses TypeScript to provide type checking and documentation.
-The repo depends on the latest plugin API (obsidian.d.ts) in TypeScript Definition format, which contains TSDoc comments describing what it does.
+- When a user open a note in obsidian, the plugin moves the cursor to the last edit position.
+  - This occurs only once for each note.
+- To do this, 
+  - the plugin utilize `unique identifier`, which can be either of `plugin generated UUID` or `user provided field`.
+  - When opening obsidian or editing a note, the plugin stores the note's `UUID` or `user provided field` as well as the edit line number and character number.
+  - When saving the line number and character number, the plugin looks for the `unique identifier` or add one if there's none in the front matter.
+- When using `UUID` for the `unique identifier`, the plugin will automatically generate `UUID` if one is missing.
+- When using `user provided field`, the plugin will NOT generate anything.
 
-This sample plugin demonstrates some of the basic functionality the plugin API can do.
-- Adds a ribbon icon, which shows a Notice when clicked.
-- Adds a command "Open Sample Modal" which opens a Modal.
-- Adds a plugin setting tab to the settings page.
-- Registers a global click event and output 'click' to the console.
-- Registers a global interval which logs 'setInterval' to the console.
+## the format of `unique identifier` in the front matter 
+- `{ID name}: {ID}`
 
-## First time developing plugins?
+## how a user can use the plugin
 
-Quick starting guide for new plugin devs:
+- turn on the enabling option.
+- choose ID source.
+- provide ID name according to the ID source option.
+- choose folders where the plugin operates.
+- if you need, remove unnecessary data from `data.json` file.
 
-- Check if [someone already developed a plugin for what you want](https://obsidian.md/plugins)! There might be an existing plugin similar enough that you can partner up with.
-- Make a copy of this repo as a template with the "Use this template" button (login to GitHub if you don't see it).
-- Clone your repo to a local development folder. For convenience, you can place this folder in your `.obsidian/plugins/your-plugin-name` folder.
-- Install NodeJS, then run `npm i` in the command line under your repo folder.
-- Run `npm run dev` to compile your plugin from `main.ts` to `main.js`.
-- Make changes to `main.ts` (or create new `.ts` files). Those changes should be automatically compiled into `main.js`.
-- Reload Obsidian to load the new version of your plugin.
-- Enable plugin in settings window.
-- For updates to the Obsidian API run `npm update` in the command line under your repo folder.
+### settings tab example
+![settings.png](settings.png)
 
-## Releasing new releases
+### choose `source option` and give a `ID name` for the `unique identifier`
 
-- Update your `manifest.json` with your new version number, such as `1.0.1`, and the minimum Obsidian version required for your latest release.
-- Update your `versions.json` file with `"new-plugin-version": "minimum-obsidian-version"` so older versions of Obsidian can download an older version of your plugin that's compatible.
-- Create new GitHub release using your new version number as the "Tag version". Use the exact version number, don't include a prefix `v`. See here for an example: https://github.com/obsidianmd/obsidian-sample-plugin/releases
-- Upload the files `manifest.json`, `main.js`, `styles.css` as binary attachments. Note: The manifest.json file must be in two places, first the root path of your repository and also in the release.
-- Publish the release.
+  - `Option A. Plugin generated UUID`: If UUID is missing in the front matter, the plugin will automatically generate `UUID` for the note. (UUID version 1 of RFC 9562, one using timestamp, with an npm package `uuid`)
+    - The form `unique identifier` will be this: `uuid: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`
+  - `Option B. User provided field`: A user can choose exising field name to use as the `unique identifier`'s name, such as `title` or `createddatetime`. This option will not generate any field name or value but give an flexibility for those who does not want to add additional UUID to the front matter. So, if the plugin cannot find the name of the `unique indentifier` in the front matter, the plugin does not save nor restor the cursor position.
+    - The form `unique identifier` will vary according to what a user chooses.
 
-> You can simplify the version bump process by running `npm version patch`, `npm version minor` or `npm version major` after updating `minAppVersion` manually in `manifest.json`.
-> The command will bump version in `manifest.json` and `package.json`, and add the entry for the new version to `versions.json`
+## the plugin does not
 
-## Adding your plugin to the community plugin list
+- trace a user's manual modification of `unique identifier`, any of `UUID` or `user provided field`
+  - When Option B, if a user manually changes `unique identifier` of a note, the plugin cannot find it in the stored data.json; which means the plugin cannot restore the last edit position.
 
-- Check the [plugin guidelines](https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines).
-- Publish an initial version.
-- Make sure you have a `README.md` file in the root of your repo.
-- Make a pull request at https://github.com/obsidianmd/obsidian-releases to add your plugin.
+## what will be added next
 
-## How to use
+- an option to choose either `last edit position` or `last navigation position`.
+  - a few other old plugins do not work well for the `last navigation position` with multiple notes.
 
-- Clone this repo.
-- Make sure your NodeJS is at least v16 (`node --version`).
-- `npm i` or `yarn` to install dependencies.
-- `npm run dev` to start compilation in watch mode.
+## License
 
-## Manually installing the plugin
-
-- Copy over `main.js`, `styles.css`, `manifest.json` to your vault `VaultFolder/.obsidian/plugins/your-plugin-id/`.
-
-## Improve code quality with eslint (optional)
-- [ESLint](https://eslint.org/) is a tool that analyzes your code to quickly find problems. You can run ESLint against your plugin to find common bugs and ways to improve your code. 
-- To use eslint with this project, make sure to install eslint from terminal:
-  - `npm install -g eslint`
-- To use eslint to analyze this project use this command:
-  - `eslint main.ts`
-  - eslint will then create a report with suggestions for code improvement by file and line number.
-- If your source code is in a folder, such as `src`, you can use eslint with this command to analyze all files in that folder:
-  - `eslint .\src\`
-
-## Funding URL
-
-You can include funding URLs where people who use your plugin can financially support it.
-
-The simple way is to set the `fundingUrl` field to your link in your `manifest.json` file:
-
-```json
-{
-    "fundingUrl": "https://buymeacoffee.com"
-}
-```
-
-If you have multiple URLs, you can also do:
-
-```json
-{
-    "fundingUrl": {
-        "Buy Me a Coffee": "https://buymeacoffee.com",
-        "GitHub Sponsor": "https://github.com/sponsors",
-        "Patreon": "https://www.patreon.com/"
-    }
-}
-```
-
-## API Documentation
-
-See https://github.com/obsidianmd/obsidian-api
+MIT
