@@ -13,7 +13,7 @@ import { v1 as uuidv1 } from 'uuid'; // Import the v1 function from the uuid pac
 
 // Define the structure for our plugin's settings that are saved to disk.
 // This interface ensures type safety for the settings object.
-interface LastEditLineSettings {
+interface LastEditLocationSettings {
 	isPluginEnabled: boolean; // A master switch to enable or disable the entire plugin.
 	identifierSource: 'plugin-generated-UUID' | 'user-provided-field' | 'file-path'; // Determines how notes are uniquely identified.
 	generatedIdName: string; // The frontmatter key to use when the plugin generates the UUID.
@@ -25,7 +25,7 @@ interface LastEditLineSettings {
 
 // Define the default settings that will be used when the plugin is first installed
 // or when the settings data file (`data.json`) is missing or corrupted.
-const DEFAULT_SETTINGS: LastEditLineSettings = {
+const DEFAULT_SETTINGS: LastEditLocationSettings = {
 	isPluginEnabled: false,
 	identifierSource: 'plugin-generated-UUID', // Default to the plugin generating the ID.
 	generatedIdName: '', // User must explicitly provide a name for the ID field.
@@ -36,8 +36,8 @@ const DEFAULT_SETTINGS: LastEditLineSettings = {
 
 // This is the main class for our plugin. It extends the base Plugin class from Obsidian,
 // inheriting its lifecycle methods like `onload` and `onunload`.
-export default class LastEditLinePlugin extends Plugin {
-	settings: LastEditLineSettings; // This will hold the currently loaded settings.
+export default class LastEditLocationPlugin extends Plugin {
+	settings: LastEditLocationSettings; // This will hold the currently loaded settings.
 
 	// This Set tracks which files have had their cursor restored in the current session.
 	// It prevents the cursor from being moved every time a file is focused.
@@ -59,7 +59,7 @@ export default class LastEditLinePlugin extends Plugin {
 		this.restoredInCurrentSession = new Set<string>();
 
 		// Add a settings tab to Obsidian's settings window, allowing users to configure the plugin.
-		this.addSettingTab(new LastEditLineSettingTab(this.app, this));
+		this.addSettingTab(new LastEditLocationSettingTab(this.app, this));
 
 		// Create a "debounced" version of our saveSettings function.
 		// This prevents the plugin from saving to disk on every single keystroke,
@@ -326,10 +326,10 @@ function debounce(func: (...args: any[]) => any, wait: number, immediate: boolea
 }
 
 // Defines the settings tab for the plugin, which appears in the main Obsidian settings window.
-class LastEditLineSettingTab extends PluginSettingTab {
-	plugin: LastEditLinePlugin;
+class LastEditLocationSettingTab extends PluginSettingTab {
+	plugin: LastEditLocationPlugin;
 
-	constructor(app: App, plugin: LastEditLinePlugin) {
+	constructor(app: App, plugin: LastEditLocationPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
