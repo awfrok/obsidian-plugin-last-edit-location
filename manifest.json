@@ -1,7 +1,7 @@
 {
 	"id": "last-edit-location",
 	"name": "Last Edit Location",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"minAppVersion": "0.15.0",
 	"description": "When opening a note, put the cursor at the last edit location.",
 	"author": "Kyoungdeuk",
