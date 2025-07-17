@@ -50,7 +50,7 @@
   - When under Option B and C, if a user manually changes `unique identifier` of a note, the plugin cannot find it in the stored data.json; which means the plugin will save location with a new `unique identifier`.
 
 ## what will be added next
-- [x] a command to put the cursor at the last edit position and to scroll the last edit position in the vertical center of the view (v 0.1.3)
+- [x] a command to put the cursor at the last edit position and to scroll the cursor in the vertical center of the view (v 0.1.3)
 - [x] a command to scroll the current cursor line to the vertical center of the view (v 0.1.3)
 
 ## what will not be added
