@@ -1,11 +1,11 @@
 {
 	"id": "last-edit-location",
 	"name": "Last Edit Location",
-	"version": "0.1.2",
+	"version": "0.1.3",
 	"minAppVersion": "0.15.0",
 	"description": "When opening a note, put the cursor at the last edit location.",
 	"author": "Kyoungdeuk",
 	"authorUrl": "",
-	"fundingUrl": "",
+	"fundingUrl": "https://ko-fi.com/kydem",
 	"isDesktopOnly": false
 }

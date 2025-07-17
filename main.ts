@@ -1,3 +1,7 @@
+//
+// v 0.1.3
+//
+
 // Import necessary classes and functions from the Obsidian API.
 import { 
     App,              // The main application object, giving access to the workspace, vault, etc.
@@ -52,6 +56,17 @@ export default class LastEditLocationPlugin extends Plugin {
     async onload() {
         // Load the saved settings from the `data.json` file in the plugin's directory.
         await this.loadSettings();
+
+        // Add a command to scroll the current cursor line to the vertical center of the view.
+        // This is independent of the main plugin functionality.
+        this.addCommand({
+            id: 'scroll-cursor-line-to-center',
+            name: 'Scroll cursor line to center of view',
+            editorCallback: (editor: Editor) => {
+                const { line } = editor.getCursor();
+                editor.scrollIntoView({ from: { line, ch: 0 }, to: { line, ch: 0 } }, true);
+            }
+        });
         
         // Initialize the session-only set for tracking restored files.
         this.restoredInCurrentSession = new Set<string>();
