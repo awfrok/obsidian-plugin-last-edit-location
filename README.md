@@ -30,7 +30,7 @@
   - UUID is [version 1 of RFC 9562](https://www.rfc-editor.org/rfc/rfc9562.html#name-uuid-version-1), one using timestamp, with an npm package `uuid` 
 - `Option B. User provided field`: A user can choose one of exising field names to use as the `unique identifier`'s name, such as `title` or `createddatetime`. This option will not generate any field name or value but is to offer a flexibility for those who does not want to add additional UUID to the front matter. So, if the plugin cannot find the name of the `unique indentifier` in the front matter, the plugin does not save nor restore the cursor location.
   - The form `unique identifier` will vary according to what a user chooses.
-- `Option C. File name`: If a user does not use the front matter, the file name of a note can be used as its `unique identifier`. This is for those who does not use the front matter.
+- `Option C. File path`: If a user does not use the front matter, the note's relative path in the vault can be used as its `unique identifier`. This is for those who does not want to use the front matter.
 
 #### choose folders where the plugin operates
 
