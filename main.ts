@@ -67,6 +67,35 @@ export default class LastEditLocationPlugin extends Plugin {
                 editor.scrollIntoView({ from: { line, ch: 0 }, to: { line, ch: 0 } }, true);
             }
         });
+
+        // Add a command to move the cursor to the last saved edit location and scroll it into view.
+        this.addCommand({
+            id: 'go-to-last-edit-location',
+            name: 'Go to last edit location',
+            editorCallback: async (editor: Editor, view: MarkdownView) => {
+                const file = view.file;
+                if (!file) {
+                    new Notice("No active file.");
+                    return;
+                }
+
+                if (!this.isFileIncluded(file)) {
+                    new Notice("Last Edit Location is not active for this file (folder not included).");
+                    return;
+                }
+
+                const uniqueIdentifier = await this.getUniqueIdentifier(file, false);
+                const savedPosition = uniqueIdentifier ? this.settings.cursorPosition[uniqueIdentifier] : undefined;
+
+                if (savedPosition && savedPosition.line <= editor.lastLine()) {
+                    editor.setCursor(savedPosition);
+                    editor.scrollIntoView({ from: savedPosition, to: savedPosition }, true);
+                } else {
+                    new Notice("No last edit location found for this file.");
+                }
+            }
+        });
+        
         
         // Initialize the session-only set for tracking restored files.
         this.restoredInCurrentSession = new Set<string>();
