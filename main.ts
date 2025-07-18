@@ -1,5 +1,5 @@
 //
-// v 0.1.3
+// v 0.1.3.1
 //
 
 // Import necessary classes and functions from the Obsidian API.
@@ -26,6 +26,7 @@ interface LastEditLocationSettings {
     cursorPosition: Record<string, {line: number, ch: number}>; // 'ch' stands for character.
 }
 
+
 // Define the default settings that will be used when the plugin is first installed
 // or when the settings data file (`data.json`) is missing or corrupted.
 const DEFAULT_SETTINGS: LastEditLocationSettings = {
@@ -35,6 +36,24 @@ const DEFAULT_SETTINGS: LastEditLocationSettings = {
     includedFolders: '', // Plugin is inactive by default until folders are specified.
     cursorPosition: {}, // Starts with no saved positions.
 };
+
+
+// Centralized constants for easy maintenance.
+const PLUGIN_CONSTANTS = {
+    COMMANDS: {
+        SCROLL_TO_CENTER: {
+            id: 'scroll-cursor-line-to-center',
+            name: 'Scroll cursor line to center of view',
+        },
+        GO_TO_LAST_EDIT: {
+            id: 'go-to-last-edit-location',
+            name: 'Go to last edit location',
+        },
+    },
+    DEBOUNCE_SAVE_DELAY: 2000,
+    RESTORE_CURSOR_DELAY: 10,
+};
+
 
 // This is the main class for our plugin. It extends the base Plugin class from Obsidian,
 // inheriting its lifecycle methods like `onload` and `onunload`.
@@ -60,8 +79,8 @@ export default class LastEditLocationPlugin extends Plugin {
         // Add a command to scroll the current cursor line to the vertical center of the view.
         // This is independent of the main plugin functionality.
         this.addCommand({
-            id: 'scroll-cursor-line-to-center',
-            name: 'Scroll cursor line to center of view',
+            id: PLUGIN_CONSTANTS.COMMANDS.SCROLL_TO_CENTER.id,
+            name: PLUGIN_CONSTANTS.COMMANDS.SCROLL_TO_CENTER.name,
             editorCallback: (editor: Editor) => {
                 const { line } = editor.getCursor();
                 editor.scrollIntoView({ from: { line, ch: 0 }, to: { line, ch: 0 } }, true);
@@ -70,8 +89,8 @@ export default class LastEditLocationPlugin extends Plugin {
 
         // Add a command to move the cursor to the last saved edit location and scroll it into view.
         this.addCommand({
-            id: 'go-to-last-edit-location',
-            name: 'Go to last edit location',
+            id: PLUGIN_CONSTANTS.COMMANDS.GO_TO_LAST_EDIT.id,
+            name: PLUGIN_CONSTANTS.COMMANDS.GO_TO_LAST_EDIT.name,
             editorCallback: async (editor: Editor, view: MarkdownView) => {
                 const file = view.file;
                 if (!file) {
@@ -107,7 +126,7 @@ export default class LastEditLocationPlugin extends Plugin {
         // This prevents the plugin from saving to disk on every single keystroke,
         // which would be inefficient. It will only save, at most, once every 2 seconds.
         // The `true` argument makes it trigger on the leading edge of the wait interval.
-        this.debouncedSave = debounce(() => this.saveSettings(), 2000, true);
+        this.debouncedSave = debounce(() => this.saveSettings(), PLUGIN_CONSTANTS.DEBOUNCE_SAVE_DELAY, true);
         
         // `onLayoutReady` fires once the Obsidian workspace UI is fully loaded and ready.
         // This is the safest time to register events and interact with the workspace to avoid race conditions.
@@ -168,7 +187,7 @@ export default class LastEditLocationPlugin extends Plugin {
                 // Mark this file's ID as "restored" for this session to prevent this logic from running again
                 // if the user switches back to this file.
                 this.restoredInCurrentSession.add(uniqueIdentifier);
-            }, 10);
+            }, PLUGIN_CONSTANTS.RESTORE_CURSOR_DELAY);
         }
     }
 
