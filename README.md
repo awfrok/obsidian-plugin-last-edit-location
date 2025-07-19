@@ -11,6 +11,10 @@
 
 ## how a user can use the plugin
 
+### settings tab example
+![settings.png](settings.png)
+
+
 - ~~turn on the enabling option.~~
 - choose ID source and provide ID name according to the ID source option.
 - list folders where the plugin operates.
@@ -19,9 +23,6 @@
 - The plugin has two commands.
   - `Scroll cursor line to center of view`
   - `Go to last edit location`
-
-### settings tab example
-![settings.png](settings.png)
 
 #### the format of `unique identifier` in the front matter 
 
