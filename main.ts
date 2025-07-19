@@ -67,7 +67,7 @@ const PLUGIN_CONSTANTS = {
         },
         GENERATED_ID_INPUT: {
             name: 'Option A. ID name for plugin generated UUID',
-            desc: "Give a field name in which's value the plugin will add the generated UUID. • Required when 'Source' is set to 'Option A'.",
+            desc: "Give a field name in which's value the plugin will add the generated UUID (version 1 of RFC 9562, https://www.rfc-editor.org/rfc/rfc9562.html#name-uuid-version-1). • Required when 'Source' is set to 'Option A'.",
             placeholder: 'e.g., uuid or uid or id',
         },
         USER_ID_INPUT: {
