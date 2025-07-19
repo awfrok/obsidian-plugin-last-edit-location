@@ -14,21 +14,11 @@
 ### settings tab example
 ![settings.png](settings.png)
 
-
-- ~~turn on the enabling option.~~
-- choose ID source and provide ID name according to the ID source option.
-- list folders where the plugin operates.
-- if needed, remove unnecessary data from `data.json` file.
-
-- The plugin has two commands.
-  - `Scroll cursor line to center of view`
-  - `Go to last edit location`
-
-#### the format of `unique identifier` in the front matter 
+### the format of `unique identifier` in the front matter 
 
 - `{ID name}: {ID}`
 
-#### choose `source` option and give an `ID name` for the `unique identifier`
+### choose `source` option and give an `ID name` for the `unique identifier`
 
 - `Option A. Plugin generated UUID`: If UUID is missing in the front matter, the plugin will automatically generate `UUID` for the note. 
   - The form `unique identifier` will be this: `uuid: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`
@@ -37,17 +27,21 @@
   - The form `unique identifier` will vary according to what a user chooses.
 - `Option C. File path`: If a user does not use the front matter, the note's relative path in the vault can be used as its `unique identifier`. This is for those who does not want to use the front matter.
 
-#### choose folders where the plugin operates
+### choose folders where the plugin operates
 
 - `/` means the root of the vault.
 - `/*` means the rood and all the sub folders.
 - `folder` means the folder in the root.
 - `folder/*` means the folder and all its sub folders.
 
-#### remove the unnecessary
+### remove the unnecessary
 
 - A user can clean up the unnecessary data of location caused by moving notes out from the working folders or deleting them.
 - Beware. The stored identifiers other than the current ID set by the above 'source' option will be removed.
+
+### The plugin has two commands (v 0.1.3)
+  - `Scroll cursor line to center of view`
+  - `Go to last edit location`
 
 ## the plugin does not
 
