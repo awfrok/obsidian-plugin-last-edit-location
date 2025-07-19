@@ -11,10 +11,14 @@
 
 ## how a user can use the plugin
 
-- turn on the enabling option.
+- ~~turn on the enabling option.~~
 - choose ID source and provide ID name according to the ID source option.
-- choose folders where the plugin operates.
+- list folders where the plugin operates.
 - if needed, remove unnecessary data from `data.json` file.
+
+- The plugin has two commands.
+  - `Scroll cursor line to center of view`
+  - `Go to last edit location`
 
 ### settings tab example
 ![settings.png](settings.png)

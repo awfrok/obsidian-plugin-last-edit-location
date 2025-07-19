@@ -81,7 +81,7 @@ const PLUGIN_CONSTANTS = {
         },
         INCLUDED_FOLDERS: {
             name: 'List folders',
-            desc: "Choose folders where the plugin will be active. Provide one path per line. \n• `Folder` includes only notes inside `Folder`.\n• `Folder/*` includes notes inside `Folder` and all its subfolders.\n• `/` includes only notes in the vault's root.\n• `/*` includes all notes in the entire vault.\nIf this list is empty, the plugin will not function.",
+            desc: "Choose folders where the plugin will be active. Provide one path per line. \n• `Folder` includes only notes inside `Folder`.\n• `Folder/*` includes notes inside `Folder` and all its subfolders.\n• `/` includes only notes in the vault's root.\n• `/*` includes all notes in the entire vault.\n• If this list is empty, the plugin will not function.",
             placeholder: 'e.g.,\n/*\n/\nFolder\nFolder/*',
         },
         CLEANUP_BUTTON: {
