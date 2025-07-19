@@ -1,5 +1,5 @@
 //
-// v 0.1.3.1
+// v 0.1.3.2
 //
 
 // Import necessary classes and functions from the Obsidian API.
@@ -52,6 +52,46 @@ const PLUGIN_CONSTANTS = {
     },
     DEBOUNCE_SAVE_DELAY: 2000,
     RESTORE_CURSOR_DELAY: 10,
+    SETTINGS: {
+        TITLES: {
+            IDENTIFIER: 'Set an unique identifier',
+            OPERATES_ON: 'Specify where the plugin operates',
+            MANAGE_DATA: 'Manage data',
+        },
+        SOURCE_DROPDOWN: {
+            name: 'Source',
+            desc: 'Choose the source for the unique note identifier.',
+            optionA: 'Option A. Plugin generated UUID',
+            optionB: 'Option B. User provided field',
+            optionC: 'Option C. File path',
+        },
+        GENERATED_ID_INPUT: {
+            name: 'Option A. ID name for plugin generated UUID',
+            desc: "Give a field name in which's value the plugin will add the generated UUID. • Required when 'Source' is set to 'Option A'.",
+            placeholder: 'e.g., uuid or uid or id',
+        },
+        USER_ID_INPUT: {
+            name: 'Option B. ID name for user provided field',
+            desc: "Choose an existing field name from the front matter to use as an unique ID for the note (e.g., 'created', 'title'). • The plugin will not generate any field name or value. If the field is not found, the cursor position will not be saved. • Required when 'Source' is set to 'Option B'.",
+            placeholder: 'e.g., created or title',
+        },
+        FILE_PATH_INFO: {
+            name: 'Option C. File path',
+            desc: "The plugin will use the note's relative path in the vault (e.g., 'folder/note.md') as the unique identifier. This is for those who does not use the front matter.",
+        },
+        INCLUDED_FOLDERS: {
+            name: 'List folders',
+            desc: "Choose folders where the plugin will be active. Provide one path per line. \n• `Folder` includes only notes inside `Folder`.\n• `Folder/*` includes notes inside `Folder` and all its subfolders.\n• `/` includes only notes in the vault's root.\n• `/*` includes all notes in the entire vault.\nIf this list is empty, the plugin will not function.",
+            placeholder: 'e.g.,\n/*\n/\nFolder\nFolder/*',
+        },
+        CLEANUP_BUTTON: {
+            name: 'Clean up the unnecessary',
+            desc: "Remove saved line data for notes that no longer exist or are not in the 'List folders' list above. • Beware. The stored identifiers other than the current ID set by the above 'source' option will be removed.",
+            buttonText: 'Remove Now',
+            buttonTextCleaning: 'Cleaning...',
+            notice: (count: number) => `Removed data for ${count} deleted or excluded note(s).`,
+        }
+    }
 };
 
 
@@ -412,16 +452,16 @@ class LastEditLocationSettingTab extends PluginSettingTab {
         // Clear any existing content to ensure a clean re-render.
         containerEl.empty();
         
-        containerEl.createEl('h2', { text: 'Set an unique identifier' });
+        containerEl.createEl('h2', { text: PLUGIN_CONSTANTS.SETTINGS.TITLES.IDENTIFIER });
 
         // Setting 2: Dropdown to choose the source of the unique ID.
         new Setting(containerEl)
-            .setName('Source')
-            .setDesc('Choose the source for the unique note identifier.')
+            .setName(PLUGIN_CONSTANTS.SETTINGS.SOURCE_DROPDOWN.name)
+            .setDesc(PLUGIN_CONSTANTS.SETTINGS.SOURCE_DROPDOWN.desc)
             .addDropdown(dropdown => dropdown
-                .addOption('plugin-generated-UUID', 'Option A. Plugin generated UUID')
-                .addOption('user-provided-field', 'Option B. User provided field')
-                .addOption('file-path', 'Option C. File path')
+                .addOption('plugin-generated-UUID', PLUGIN_CONSTANTS.SETTINGS.SOURCE_DROPDOWN.optionA)
+                .addOption('user-provided-field', PLUGIN_CONSTANTS.SETTINGS.SOURCE_DROPDOWN.optionB)
+                .addOption('file-path', PLUGIN_CONSTANTS.SETTINGS.SOURCE_DROPDOWN.optionC)
                 .setValue(this.plugin.settings.identifierSource)
                 .onChange((value: 'plugin-generated-UUID' | 'user-provided-field' | 'file-path') => {
                     this.plugin.settings.identifierSource = value;
@@ -431,11 +471,11 @@ class LastEditLocationSettingTab extends PluginSettingTab {
 
         // Setting 3: Text input for the ID name when the plugin generates it.
         new Setting(containerEl)
-            .setName('Option A. ID name for plugin generated UUID')
-            .setDesc("Give a field name in which's value the plugin will add the generated UUID. • Required when 'Source' is set to 'Option A'.")
+            .setName(PLUGIN_CONSTANTS.SETTINGS.GENERATED_ID_INPUT.name)
+            .setDesc(PLUGIN_CONSTANTS.SETTINGS.GENERATED_ID_INPUT.desc)
             .addText(text => {
                 text
-                    .setPlaceholder('e.g., uuid or uid or id')
+                    .setPlaceholder(PLUGIN_CONSTANTS.SETTINGS.GENERATED_ID_INPUT.placeholder)
                     .setValue(this.plugin.settings.generatedIdName)
                     // This text field is disabled if the user has not selected "Option A".
                     .setDisabled(this.plugin.settings.identifierSource !== 'plugin-generated-UUID')
@@ -444,11 +484,11 @@ class LastEditLocationSettingTab extends PluginSettingTab {
 
         // Setting 4: Text input for the ID name when the user provides it.
         new Setting(containerEl)
-            .setName('Option B. ID name for user provided field')
-            .setDesc("Choose an existing field name from the front matter to use as an unique ID for the note (e.g., 'created', 'title'). • The plugin will not generate any field name or value. If the field is not found, the cursor position will not be saved. • Required when 'Source' is set to 'Option B'.")
+            .setName(PLUGIN_CONSTANTS.SETTINGS.USER_ID_INPUT.name)
+            .setDesc(PLUGIN_CONSTANTS.SETTINGS.USER_ID_INPUT.desc)
             .addText(text => {
                 text
-                    .setPlaceholder('e.g., created or title')
+                    .setPlaceholder(PLUGIN_CONSTANTS.SETTINGS.USER_ID_INPUT.placeholder)
                     .setValue(this.plugin.settings.userProvidedIdName)
                     // This text field is disabled if the user has not selected "Option B".
                     .setDisabled(this.plugin.settings.identifierSource !== 'user-provided-field')
@@ -457,37 +497,37 @@ class LastEditLocationSettingTab extends PluginSettingTab {
         
         // Setting 5: Description for Option C. This is purely informational.
         new Setting(containerEl)
-            .setName('Option C. File path')
-            .setDesc("The plugin will use the note's relative path in the vault (e.g., 'folder/note.md') as the unique identifier. This is for those who does not use the front matter.");
+            .setName(PLUGIN_CONSTANTS.SETTINGS.FILE_PATH_INFO.name)
+            .setDesc(PLUGIN_CONSTANTS.SETTINGS.FILE_PATH_INFO.desc);
 
 
-        containerEl.createEl('h2', { text: 'Specify where the plugin operates' });
+        containerEl.createEl('h2', { text: PLUGIN_CONSTANTS.SETTINGS.TITLES.OPERATES_ON });
 
         // Setting 6: Text area for specifying which folders to include.
         new Setting(containerEl)
-            .setName('List folders')
-            .setDesc("Choose folders where the plugin will be active. Provide one path per line. \n• `Folder` includes only notes inside `Folder`.\n• `Folder/*` includes notes inside `Folder` and all its subfolders.\n• `/` includes only notes in the vault's root.\n• `/*` includes all notes in the entire vault.\nIf this list is empty, the plugin will not function.")
+            .setName(PLUGIN_CONSTANTS.SETTINGS.INCLUDED_FOLDERS.name)
+            .setDesc(PLUGIN_CONSTANTS.SETTINGS.INCLUDED_FOLDERS.desc)
             .addTextArea(text => {
                 text
-                    .setPlaceholder('e.g.,\n/*\n/\nFolder\nFolder/*')
+                    .setPlaceholder(PLUGIN_CONSTANTS.SETTINGS.INCLUDED_FOLDERS.placeholder)
                     .setValue(this.plugin.settings.includedFolders)
                     .onChange(value => this.plugin.settings.includedFolders = value);
                 // Make the text area larger for better usability.
                 text.inputEl.style.minHeight = '120px';
             });
 
-        containerEl.createEl('h2', { text: 'Manage data' });
+        containerEl.createEl('h2', { text: PLUGIN_CONSTANTS.SETTINGS.TITLES.MANAGE_DATA });
 
         // Setting 7: Button to clean up stale data from the settings file.
         new Setting(containerEl)
-            .setName('Clean up the unnecessary')
-            .setDesc("Remove saved line data for notes that no longer exist or are not in the 'List folders' list above. • Beware. The stored identifiers other than the current ID set by the above 'source' option will be removed.")
+            .setName(PLUGIN_CONSTANTS.SETTINGS.CLEANUP_BUTTON.name)
+            .setDesc(PLUGIN_CONSTANTS.SETTINGS.CLEANUP_BUTTON.desc)
             .addButton(button => {
                 button
-                    .setButtonText('Remove Now')
+                    .setButtonText(PLUGIN_CONSTANTS.SETTINGS.CLEANUP_BUTTON.buttonText)
                     .onClick(async () => {
                         // Provide user feedback during the cleanup process.
-                        button.setButtonText('Cleaning...').setDisabled(true);
+                        button.setButtonText(PLUGIN_CONSTANTS.SETTINGS.CLEANUP_BUTTON.buttonTextCleaning).setDisabled(true);
                         
                         const allFiles = this.app.vault.getMarkdownFiles();
                         const validIdentifiers = new Set<string>();
@@ -505,14 +545,14 @@ class LastEditLocationSettingTab extends PluginSettingTab {
                                     if (cachedFrontmatter && cachedFrontmatter[idName]) {
                                         validIdentifiers.add(String(cachedFrontmatter[idName]));
                                     }
-                                 }
+                                }
                             }
                         }
-            
+                
                         // Step 2: Iterate through the saved cursor positions.
                         const savedIdentifiers = Object.keys(this.plugin.settings.cursorPosition);
                         let cleanedCount = 0;
-            
+                
                         for (const savedId of savedIdentifiers) {
                             // If a saved ID is not in our set of valid IDs, it's stale.
                             if (!validIdentifiers.has(savedId)) {
@@ -521,13 +561,13 @@ class LastEditLocationSettingTab extends PluginSettingTab {
                                 cleanedCount++;
                             }
                         }
-            
+                
                         // Step 3: Save the cleaned settings and notify the user.
                         await this.plugin.saveSettings();
-                        new Notice(`Removed data for ${cleanedCount} deleted or excluded note(s).`);
+                        new Notice(PLUGIN_CONSTANTS.SETTINGS.CLEANUP_BUTTON.notice(cleanedCount));
                         
                         // Reset the button to its original state.
-                        button.setButtonText('Remove Now').setDisabled(false);
+                        button.setButtonText(PLUGIN_CONSTANTS.SETTINGS.CLEANUP_BUTTON.buttonText).setDisabled(false);
                     });
             });
     }
