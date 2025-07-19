@@ -40,8 +40,9 @@
 - Beware. The stored identifiers other than the current ID set by the above 'source' option will be removed.
 
 ### The plugin has two commands (v 0.1.3)
-  - `Scroll cursor line to center of view`
   - `Go to last edit location`
+  - `Scroll cursor line to center of view`
+
 
 ## the plugin does not
 

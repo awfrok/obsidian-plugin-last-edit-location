@@ -41,13 +41,13 @@ const DEFAULT_SETTINGS: LastEditLocationSettings = {
 // Centralized constants for easy maintenance.
 const PLUGIN_CONSTANTS = {
     COMMANDS: {
-        SCROLL_TO_CENTER: {
-            id: 'scroll-cursor-line-to-center',
-            name: 'Scroll cursor line to center of view',
-        },
         GO_TO_LAST_EDIT: {
             id: 'go-to-last-edit-location',
             name: 'Go to last edit location',
+        },
+        SCROLL_TO_CENTER: {
+            id: 'scroll-cursor-line-to-center',
+            name: 'Scroll cursor line to center of view',
         },
     },
     DEBOUNCE_SAVE_DELAY: 2000,
