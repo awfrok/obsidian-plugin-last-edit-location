@@ -11,7 +11,7 @@
 - To do this, internally
 
   - the plugin utilizes `unique identifier`, which can be one of `plugin generated UUID`, `user provided field`, or `file path`
-  
+
   - When editing a note, the plugin stores the note's `unique identifier` as well as the edit line number and character number.
 
 ## how a user can use the plugin
@@ -38,6 +38,10 @@
 - `/*` means the rood and all the sub folders.
 - `folder` means the folder in the root.
 - `folder/*` means the folder and all its sub folders.
+
+### set restoring delay time
+
+- 10ms to 1000ms, 10ms steps
 
 ### remove the unnecessary
 
