@@ -1,5 +1,9 @@
 //
-// v 0.1.3.2
+// 0.1.4.0
+// 
+//
+// last commit: 0.1.4
+// adding an option to adjust restoring delay
 //
 
 // Import necessary classes and functions from the Obsidian API.
@@ -22,6 +26,7 @@ interface LastEditLocationSettings {
     generatedIdName: string; // The frontmatter key to use when the plugin generates the UUID.
     userProvidedIdName: string; // The frontmatter key to use when the user provides the identifier.
     includedFolders: string; // A newline-separated string of folder paths where the plugin should be active.
+    restoringDelayTime: number; // The delay in milliseconds before restoring the cursor.
     // A dictionary-like object mapping a file's unique ID to its last known cursor position.
     cursorPosition: Record<string, {line: number, ch: number}>; // 'ch' stands for character.
 }
@@ -34,6 +39,7 @@ const DEFAULT_SETTINGS: LastEditLocationSettings = {
     generatedIdName: '', // User must explicitly provide a name for the ID field.
     userProvidedIdName: '',
     includedFolders: '', // Plugin is inactive by default until folders are specified.
+    restoringDelayTime: 50, // Default delay of 50ms.
     cursorPosition: {}, // Starts with no saved positions.
 };
 
@@ -51,11 +57,11 @@ const PLUGIN_CONSTANTS = {
         },
     },
     DEBOUNCE_SAVE_DELAY: 2000,
-    RESTORE_CURSOR_DELAY: 10,
     SETTINGS: {
         TITLES: {
             IDENTIFIER: 'Set an unique identifier',
             OPERATES_ON: 'Specify where the plugin operates',
+            OTHER: 'Set restoring options',
             MANAGE_DATA: 'Manage data',
         },
         SOURCE_DROPDOWN: {
@@ -80,12 +86,16 @@ const PLUGIN_CONSTANTS = {
             desc: "The plugin will use the note's relative path in the vault (e.g., 'folder/note.md') as the unique identifier. This is for those who does not use the front matter.",
         },
         INCLUDED_FOLDERS: {
-            name: 'List folders',
+            name: 'Working folders',
             desc: "Choose folders where the plugin will be active. Provide one path per line. \n• `Folder` includes only notes inside `Folder`.\n• `Folder/*` includes notes inside `Folder` and all its subfolders.\n• `/` includes only notes in the vault's root.\n• `/*` includes all notes in the entire vault.\n• If this list is empty, the plugin will not function.",
             placeholder: 'e.g.,\n/*\n/\nFolder\nFolder/*',
         },
+        RESTORING_DELAY_SLIDER: {
+            name: 'Restoring delay time',
+            desc: 'The delay in milliseconds before restoring the cursor position. Increase this if the cursor does not restore consistently.',
+        },
         CLEANUP_BUTTON: {
-            name: 'Clean up the unnecessary',
+            name: 'Cleaning up the unnecessary',
             desc: "Remove saved line data for notes that no longer exist or are not in the 'List folders' list above. • Beware. The stored identifiers other than the current ID set by the above 'source' option will be removed.",
             buttonText: 'Remove Now',
             buttonTextCleaning: 'Cleaning...',
@@ -103,7 +113,7 @@ export default class LastEditLocationPlugin extends Plugin {
     // This Set tracks which files have had their cursor restored in the current session.
     // It prevents the cursor from being moved every time a file is focused.
     // It is temporary and resets every time Obsidian is restarted.
-    private restoredInCurrentSession: Set<string>;
+    private hasBeenRestoredInCurrentSession: Set<string>;
 
     // This holds the debounced version of our save function to improve performance
     // by limiting how often we write to the disk.
@@ -157,7 +167,7 @@ export default class LastEditLocationPlugin extends Plugin {
         
         
         // Initialize the session-only set for tracking restored files.
-        this.restoredInCurrentSession = new Set<string>();
+        this.hasBeenRestoredInCurrentSession = new Set<string>();
 
         // Add a settings tab to Obsidian's settings window, allowing users to configure the plugin.
         this.addSettingTab(new LastEditLocationSettingTab(this.app, this));
@@ -176,15 +186,17 @@ export default class LastEditLocationPlugin extends Plugin {
             this.registerEvent(
                 this.app.workspace.on('editor-change', (editor, markdownView) => {
                     // When a change occurs, we save the new cursor position.
-                    this.saveCursorPosition(editor, markdownView.file);
+                    this.saveLastEditLocation(editor, markdownView.file);
                 })
             );
 
             // This event listens for when a new file is opened in the workspace.
             this.registerEvent(
-                this.app.workspace.on('file-open', (file) => {
-                    // When a file is opened, we run our logic to potentially restore the cursor.
-                    this.handleFileOpen(file);
+                this.app.workspace.on('file-open', async (file) => {
+                    const uniqueIdentifier = await this.shouldRestoreCursor(file);
+                    if (uniqueIdentifier) {
+                        this.restoreLastEditLocation(uniqueIdentifier);
+                    }
                 })
             );
             
@@ -192,7 +204,14 @@ export default class LastEditLocationPlugin extends Plugin {
             // So, we manually handle the very first file that's active on startup.
             const activeFile = this.app.workspace.getActiveFile();
             if (activeFile) {
-                this.handleFileOpen(activeFile);
+                // We wrap this in an async IIFE (Immediately Invoked Function Expression) 
+                // to use await with shouldRestoreCursor.
+                (async () => {
+                    const uniqueIdentifier = await this.shouldRestoreCursor(activeFile);
+                    if (uniqueIdentifier) {
+                        this.restoreLastEditLocation(uniqueIdentifier);
+                    }
+                })();
             }
         });
     }
@@ -205,30 +224,23 @@ export default class LastEditLocationPlugin extends Plugin {
     onunload() {}
 
     /**
-     * Handles the logic for opening a file, checking if the cursor should be restored.
-     * @param file The file that was just opened. Can be null if no file is open.
+     * A query function that determines if the cursor should be restored for a given file.
+     * @param file The file to check.
+     * @returns The unique identifier of the file if the cursor should be restored, otherwise null.
      */
-    private async handleFileOpen(file: TFile | null) {
-        // Exit if no file is actually open.
-        if (!file) return;
-
-        // MODIFICATION: Call getUniqueIdentifier with createIfMissing set to false.
-        // We only want to read the identifier here, not create it just by opening a file.
-        const uniqueIdentifier = await this.getUniqueIdentifier(file, false);
-        if (!uniqueIdentifier) return;
-
-        // Check if this file has already had its cursor restored in this session.
-        // If not, we proceed to restore it.
-        if (!this.restoredInCurrentSession.has(uniqueIdentifier)) {
-            // Use a small timeout to ensure the editor is fully rendered and ready for cursor manipulation.
-            // 10ms is usually enough time for the UI to update.
-            setTimeout(() => {
-                this.restoreCursorPosition(file);
-                // Mark this file's ID as "restored" for this session to prevent this logic from running again
-                // if the user switches back to this file.
-                this.restoredInCurrentSession.add(uniqueIdentifier);
-            }, PLUGIN_CONSTANTS.RESTORE_CURSOR_DELAY);
+    private async shouldRestoreCursor(file: TFile | null): Promise<string | null> {
+        // Perform all necessary checks.
+        if (!file || !this.isFileIncluded(file)) {
+            return null;
         }
+
+        const uniqueIdentifier = await this.getUniqueIdentifier(file, false);
+        if (!uniqueIdentifier || this.hasBeenRestoredInCurrentSession.has(uniqueIdentifier)) {
+            return null;
+        }
+
+        // If all checks pass, return the identifier, signaling that a restoration should occur.
+        return uniqueIdentifier;
     }
 
     /**
@@ -289,14 +301,13 @@ export default class LastEditLocationPlugin extends Plugin {
      * @param editor The active editor instance.
      * @param file The file being edited.
      */
-    async saveCursorPosition(editor: Editor, file: TFile | null) {
+    async saveLastEditLocation(editor: Editor, file: TFile | null) {
         // First, check if a file is actually open.
         if (!file) return;
 
         // Then, check if the current file is in a folder where the plugin should be active.
         if (!this.isFileIncluded(file)) return;
 
-        // MODIFICATION: Call getUniqueIdentifier with createIfMissing set to true.
         // This is the only place where we want to create a UUID if it doesn't exist,
         // because this function is only triggered by an actual edit.
         const uniqueIdentifier = await this.getUniqueIdentifier(file, true);
@@ -312,34 +323,35 @@ export default class LastEditLocationPlugin extends Plugin {
     }
 
     /**
-     * Restores the cursor to the last known position for the given file and centers the view on that line.
-     * @param file The file that was just opened.
+     * Restores the cursor to the last known position for a file and centers the view on that line.
+     * This function assumes all checks have been passed.
+     * @param uniqueIdentifier The unique ID of the file to restore the cursor for.
      */
-    async restoreCursorPosition(file: TFile) {
-        // Check if the file is in an included folder.
-        if (!this.isFileIncluded(file)) return;
+    private restoreLastEditLocation(uniqueIdentifier: string) {
+        // Use a timeout to ensure the editor is fully rendered and ready for cursor manipulation.
+        // This delay is now configurable in the plugin settings.
+        setTimeout(() => {
+            // Retrieve the saved position object from settings using the file's ID.
+            const savedPosition = this.settings.cursorPosition[uniqueIdentifier];
+            // Get the active markdown view.
+            const view = this.app.workspace.getActiveViewOfType(MarkdownView);
 
-        // MODIFICATION: Call getUniqueIdentifier with createIfMissing set to false.
-        // We only want to read the identifier to find the saved position, not create one.
-        const uniqueIdentifier = await this.getUniqueIdentifier(file, false);
-        if (!uniqueIdentifier) return;
-
-        // Retrieve the saved position object from settings using the file's ID.
-        const savedPosition = this.settings.cursorPosition[uniqueIdentifier];
-        // Get the active markdown view.
-        const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-
-        // Proceed only if we have a saved position and an active editor instance.
-        if (savedPosition !== undefined && view && view.editor) {
-            const editor = view.editor;
-            // Sanity check: make sure the saved line number is still valid and doesn't exceed the file's current length.
-            if (savedPosition.line <= editor.lastLine()) {
-                // Set the cursor to the exact saved line and character.
-                editor.setCursor({ line: savedPosition.line, ch: savedPosition.ch });
-                // Scroll the editor to place the cursor's line in the vertical center of the viewport for better context.
-                editor.scrollIntoView({ from: { line: savedPosition.line, ch: 0 }, to: { line: savedPosition.line, ch: 0 } }, true);
+            // Proceed only if we have a saved position and an active editor instance.
+            if (savedPosition !== undefined && view && view.editor) {
+                const editor = view.editor;
+                // Sanity check: make sure the saved line number is still valid and doesn't exceed the file's current length.
+                if (savedPosition.line <= editor.lastLine()) {
+                    // Set the cursor to the exact saved line and character.
+                    editor.setCursor({ line: savedPosition.line, ch: savedPosition.ch });
+                    // Scroll the editor to place the cursor's line in the vertical center of the viewport for better context.
+                    editor.scrollIntoView({ from: { line: savedPosition.line, ch: 0 }, to: { line: savedPosition.line, ch: 0 } }, true);
+                }
             }
-        }
+
+            // Mark this file's ID as "restored" for this session to prevent this logic from running again
+            // if the user switches back to this file.
+            this.hasBeenRestoredInCurrentSession.add(uniqueIdentifier);
+        }, this.settings.restoringDelayTime);
     }
     
     /**
@@ -447,14 +459,17 @@ class LastEditLocationSettingTab extends PluginSettingTab {
      * It should be used to create all the UI elements for the settings.
      */
     display(): void {
-        const { containerEl } = this; // `containerEl` is the HTML element that holds the settings tab's content.
+        // `containerEl` is the HTML element that holds the settings tab's content.
+        const { containerEl } = this; 
         
         // Clear any existing content to ensure a clean re-render.
         containerEl.empty();
         
-        containerEl.createEl('h2', { text: PLUGIN_CONSTANTS.SETTINGS.TITLES.IDENTIFIER });
-
         // Setting 2: Dropdown to choose the source of the unique ID.
+        new Setting(containerEl)
+            .setName(PLUGIN_CONSTANTS.SETTINGS.TITLES.IDENTIFIER)
+            .setHeading();
+        
         new Setting(containerEl)
             .setName(PLUGIN_CONSTANTS.SETTINGS.SOURCE_DROPDOWN.name)
             .setDesc(PLUGIN_CONSTANTS.SETTINGS.SOURCE_DROPDOWN.desc)
@@ -463,8 +478,9 @@ class LastEditLocationSettingTab extends PluginSettingTab {
                 .addOption('user-provided-field', PLUGIN_CONSTANTS.SETTINGS.SOURCE_DROPDOWN.optionB)
                 .addOption('file-path', PLUGIN_CONSTANTS.SETTINGS.SOURCE_DROPDOWN.optionC)
                 .setValue(this.plugin.settings.identifierSource)
-                .onChange((value: 'plugin-generated-UUID' | 'user-provided-field' | 'file-path') => {
+                .onChange(async (value: 'plugin-generated-UUID' | 'user-provided-field' | 'file-path') => {
                     this.plugin.settings.identifierSource = value;
+                    await this.plugin.saveSettings();
                     // Re-render the entire settings tab to enable/disable the correct text field below.
                     this.display();
                 }));
@@ -479,7 +495,10 @@ class LastEditLocationSettingTab extends PluginSettingTab {
                     .setValue(this.plugin.settings.generatedIdName)
                     // This text field is disabled if the user has not selected "Option A".
                     .setDisabled(this.plugin.settings.identifierSource !== 'plugin-generated-UUID')
-                    .onChange(value => this.plugin.settings.generatedIdName = value.trim());
+                    .onChange(async (value) => {
+                        this.plugin.settings.generatedIdName = value.trim();
+                        await this.plugin.saveSettings();
+                    });
             });
 
         // Setting 4: Text input for the ID name when the user provides it.
@@ -492,7 +511,10 @@ class LastEditLocationSettingTab extends PluginSettingTab {
                     .setValue(this.plugin.settings.userProvidedIdName)
                     // This text field is disabled if the user has not selected "Option B".
                     .setDisabled(this.plugin.settings.identifierSource !== 'user-provided-field')
-                    .onChange(value => this.plugin.settings.userProvidedIdName = value.trim());
+                    .onChange(async (value) => {
+                        this.plugin.settings.userProvidedIdName = value.trim();
+                        await this.plugin.saveSettings();
+                    });
             });
         
         // Setting 5: Description for Option C. This is purely informational.
@@ -500,10 +522,11 @@ class LastEditLocationSettingTab extends PluginSettingTab {
             .setName(PLUGIN_CONSTANTS.SETTINGS.FILE_PATH_INFO.name)
             .setDesc(PLUGIN_CONSTANTS.SETTINGS.FILE_PATH_INFO.desc);
 
-
-        containerEl.createEl('h2', { text: PLUGIN_CONSTANTS.SETTINGS.TITLES.OPERATES_ON });
-
         // Setting 6: Text area for specifying which folders to include.
+        new Setting(containerEl)
+            .setName(PLUGIN_CONSTANTS.SETTINGS.TITLES.OPERATES_ON)
+            .setHeading();
+
         new Setting(containerEl)
             .setName(PLUGIN_CONSTANTS.SETTINGS.INCLUDED_FOLDERS.name)
             .setDesc(PLUGIN_CONSTANTS.SETTINGS.INCLUDED_FOLDERS.desc)
@@ -511,14 +534,46 @@ class LastEditLocationSettingTab extends PluginSettingTab {
                 text
                     .setPlaceholder(PLUGIN_CONSTANTS.SETTINGS.INCLUDED_FOLDERS.placeholder)
                     .setValue(this.plugin.settings.includedFolders)
-                    .onChange(value => this.plugin.settings.includedFolders = value);
+                    .onChange(async (value) => {
+                        this.plugin.settings.includedFolders = value;
+                        await this.plugin.saveSettings();
+                    });
                 // Make the text area larger for better usability.
-                text.inputEl.style.minHeight = '120px';
+                text.inputEl.style.minHeight = '8em';
             });
+            
+        // NEW: Setting for the cursor restore delay
+        new Setting(containerEl)
+            .setName(PLUGIN_CONSTANTS.SETTINGS.TITLES.OTHER)
+            .setHeading();
 
-        containerEl.createEl('h2', { text: PLUGIN_CONSTANTS.SETTINGS.TITLES.MANAGE_DATA });
+        const delaySetting = new Setting(containerEl)
+            .setName(PLUGIN_CONSTANTS.SETTINGS.RESTORING_DELAY_SLIDER.name)
+            .setDesc(PLUGIN_CONSTANTS.SETTINGS.RESTORING_DELAY_SLIDER.desc);
+        
+        // This span will display the current slider value
+        const sliderValueText = delaySetting.controlEl.createSpan({ text: ` ${this.plugin.settings.restoringDelayTime} ms` });
+
+        sliderValueText.style.fontSize = '0.8em';
+        sliderValueText.style.minWidth = '60px';
+        sliderValueText.style.textAlign = 'right';
+
+        delaySetting.addSlider(slider => {
+            slider
+                .setLimits(10, 1000, 10) // Min: 10ms, Max: 1000ms, Step: 10ms
+                .setValue(this.plugin.settings.restoringDelayTime)
+                .setDynamicTooltip()
+                .onChange(async (value) => {
+                    this.plugin.settings.restoringDelayTime = value;
+                    sliderValueText.setText(` ${value} ms`);
+                    await this.plugin.saveSettings();
+                });
+        });
 
         // Setting 7: Button to clean up stale data from the settings file.
+        new Setting(containerEl)
+            .setName(PLUGIN_CONSTANTS.SETTINGS.TITLES.MANAGE_DATA)
+            .setHeading();
         new Setting(containerEl)
             .setName(PLUGIN_CONSTANTS.SETTINGS.CLEANUP_BUTTON.name)
             .setDesc(PLUGIN_CONSTANTS.SETTINGS.CLEANUP_BUTTON.desc)
@@ -548,11 +603,11 @@ class LastEditLocationSettingTab extends PluginSettingTab {
                                 }
                             }
                         }
-                
+            
                         // Step 2: Iterate through the saved cursor positions.
                         const savedIdentifiers = Object.keys(this.plugin.settings.cursorPosition);
                         let cleanedCount = 0;
-                
+            
                         for (const savedId of savedIdentifiers) {
                             // If a saved ID is not in our set of valid IDs, it's stale.
                             if (!validIdentifiers.has(savedId)) {
@@ -561,7 +616,7 @@ class LastEditLocationSettingTab extends PluginSettingTab {
                                 cleanedCount++;
                             }
                         }
-                
+            
                         // Step 3: Save the cleaned settings and notify the user.
                         await this.plugin.saveSettings();
                         new Notice(PLUGIN_CONSTANTS.SETTINGS.CLEANUP_BUTTON.notice(cleanedCount));
@@ -572,12 +627,6 @@ class LastEditLocationSettingTab extends PluginSettingTab {
             });
     }
 
-    /**
-     * This method is called when the user leaves the settings tab.
-     * It's the best place to save all changes.
-     */
     hide(): void {
-        // Save all settings when the tab is closed.
-        this.plugin.saveSettings();
     }
 }
