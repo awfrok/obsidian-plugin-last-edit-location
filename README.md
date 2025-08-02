@@ -3,10 +3,15 @@
 ## what task the plugin carries out
 
 - When a user open a note in obsidian, the plugin moves the cursor to the last edit location.
+
   - This occurs only once for each note.
+
   - The plugin is designed to work well with multiple notes.
+
 - To do this, internally
+
   - the plugin utilizes `unique identifier`, which can be one of `plugin generated UUID`, `user provided field`, or `file path`
+  
   - When editing a note, the plugin stores the note's `unique identifier` as well as the edit line number and character number.
 
 ## how a user can use the plugin
