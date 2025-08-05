@@ -1,7 +1,7 @@
 {
-	"name": "obsidian-sample-plugin",
-	"version": "1.0.0",
-	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
+	"name": "last-edit-location",
+	"version": "0.1.4",
+	"description": "When opening a note, put the cursor at the last edit location.",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
