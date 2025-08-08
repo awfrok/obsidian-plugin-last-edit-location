@@ -3,7 +3,7 @@
 	"name": "Last Edit Location",
 	"version": "0.1.4",
 	"minAppVersion": "1.8.10",
-	"description": "When opening a note, put the cursor at the last edit location.",
+	"description": "When opening a note, put the cursor at the last edit location. Works fine with multiple notes.",
 	"author": "Kyoungdeuk",
 	"authorUrl": "",
 	"fundingUrl": "https://ko-fi.com/kydem",
