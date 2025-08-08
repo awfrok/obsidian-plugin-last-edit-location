@@ -60,7 +60,7 @@
 
 ## what will be added next
 - [x] a command to put the cursor at the last edit position and to scroll the cursor in the vertical center of the view (v 0.1.3)
-- [x] a command to scroll the current cursor line to the vertical center of the view (v 0.1.3)
+- [x] a command to scroll the current cursor line in the vertical center of the view (v 0.1.3)
 
 ## what will not be added
 
