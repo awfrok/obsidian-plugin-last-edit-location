@@ -1,8 +1,15 @@
 /*
+ * Styles for the "Last Edit Location" plugin settings tab.
+ */
 
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
+/* Makes the "Working folders" text area taller for better visibility of multiple paths. */
+.last-edit-location-folders-textarea {
+    min-height: 8em;
+}
 
-If your plugin does not need CSS, delete this file.
-
-*/
+/* Styles the text display for the "Restoring delay time" slider value. */
+.last-edit-location-slider-value {
+    font-size: 0.8em;
+    min-width: 60px;
+    text-align: right;
+}

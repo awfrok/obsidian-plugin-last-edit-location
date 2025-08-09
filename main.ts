@@ -1,9 +1,8 @@
 //
-// 0.1.4.0
-// 
+// 0.1.4.1
 //
-// last commit: 0.1.4
-// adding an option to adjust restoring delay
+// last commit: 0.1.4.1
+// separate CSS into styles.css
 //
 
 // Import necessary classes and functions from the Obsidian API.
@@ -539,7 +538,7 @@ class LastEditLocationSettingTab extends PluginSettingTab {
                         await this.plugin.saveSettings();
                     });
                 // Make the text area larger for better usability.
-                text.inputEl.style.minHeight = '8em';
+                text.inputEl.addClass('last-edit-location-folders-textarea');
             });
             
         // NEW: Setting for the cursor restore delay
@@ -552,11 +551,7 @@ class LastEditLocationSettingTab extends PluginSettingTab {
             .setDesc(PLUGIN_CONSTANTS.SETTINGS.RESTORING_DELAY_SLIDER.desc);
         
         // This span will display the current slider value
-        const sliderValueText = delaySetting.controlEl.createSpan({ text: ` ${this.plugin.settings.restoringDelayTime} ms` });
-
-        sliderValueText.style.fontSize = '0.8em';
-        sliderValueText.style.minWidth = '60px';
-        sliderValueText.style.textAlign = 'right';
+        const sliderValueText = delaySetting.controlEl.createSpan({ text: ` ${this.plugin.settings.restoringDelayTime} ms`, cls: 'last-edit-location-slider-value' });
 
         delaySetting.addSlider(slider => {
             slider
