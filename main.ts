@@ -1,7 +1,7 @@
 //
-// 0.1.4.1
+// 0.1.4.2
 //
-// last commit: 0.1.4.1
+// last commit: 0.1.4.2
 // separate CSS into styles.css
 //
 
@@ -131,8 +131,8 @@ export default class LastEditLocationPlugin extends Plugin {
             id: PLUGIN_CONSTANTS.COMMANDS.SCROLL_TO_CENTER.id,
             name: PLUGIN_CONSTANTS.COMMANDS.SCROLL_TO_CENTER.name,
             editorCallback: (editor: Editor) => {
-                const { line } = editor.getCursor();
-                editor.scrollIntoView({ from: { line, ch: 0 }, to: { line, ch: 0 } }, true);
+                const cursor = editor.getCursor();
+                editor.scrollIntoView({ from: cursor, to: cursor }, true);
             }
         });
 
@@ -343,7 +343,7 @@ export default class LastEditLocationPlugin extends Plugin {
                     // Set the cursor to the exact saved line and character.
                     editor.setCursor({ line: savedPosition.line, ch: savedPosition.ch });
                     // Scroll the editor to place the cursor's line in the vertical center of the viewport for better context.
-                    editor.scrollIntoView({ from: { line: savedPosition.line, ch: 0 }, to: { line: savedPosition.line, ch: 0 } }, true);
+                    editor.scrollIntoView({ from: savedPosition, to: savedPosition }, true);
                 }
             }
 
