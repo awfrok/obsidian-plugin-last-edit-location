@@ -2,7 +2,7 @@
 // 0.1.4.2
 //
 // last commit: 0.1.4.2
-// separate CSS into styles.css
+// improve centering logic
 //
 
 // Import necessary classes and functions from the Obsidian API.
