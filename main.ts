@@ -1,8 +1,9 @@
 //
-// 0.1.4.2
+// last commit: 0.1.4.3
+// update for code consistency
 //
-// last commit: 0.1.4.2
-// improve centering logic
+// to do
+// ?improve logic of saving unique identifier.
 //
 
 // Import necessary classes and functions from the Obsidian API.
@@ -14,6 +15,7 @@ import {
     TFile,            // Represents a file in the vault.
     PluginSettingTab, // The base class for creating a settings tab.
     Setting,          // A component for creating a setting UI element.
+    debounce,         // A utility function to limit how often a function is called.
     Notice            // A function to show a temporary notification to the user.
 } from 'obsidian';
 import { v1 as uuidv1 } from 'uuid'; // Import the v1 function from the uuid package to generate unique identifiers.
@@ -96,7 +98,7 @@ const PLUGIN_CONSTANTS = {
         CLEANUP_BUTTON: {
             name: 'Cleaning up the unnecessary',
             desc: "Remove saved line data for notes that no longer exist or are not in the 'List folders' list above. • Beware. The stored identifiers other than the current ID set by the above 'source' option will be removed.",
-            buttonText: 'Remove Now',
+            buttonText: 'Remove now',
             buttonTextCleaning: 'Cleaning...',
             notice: (count: number) => `Removed data for ${count} deleted or excluded note(s).`,
         }
@@ -329,7 +331,7 @@ export default class LastEditLocationPlugin extends Plugin {
     private restoreLastEditLocation(uniqueIdentifier: string) {
         // Use a timeout to ensure the editor is fully rendered and ready for cursor manipulation.
         // This delay is now configurable in the plugin settings.
-        setTimeout(() => {
+        window.setTimeout(() => {
             // Retrieve the saved position object from settings using the file's ID.
             const savedPosition = this.settings.cursorPosition[uniqueIdentifier];
             // Get the active markdown view.
@@ -370,10 +372,10 @@ export default class LastEditLocationPlugin extends Plugin {
      * Gets or creates the unique identifier for a file based on the plugin's settings.
      * This can be the file's relative path or a value from its frontmatter.
      * @param file The file to process.
-     * @param createIfMissing If true, and the source is 'plugin-generated-UUID', a new UUID will be created and saved to the file if one doesn't exist.
+     * @param isIDMissing If true, and the source is 'plugin-generated-UUID', a new UUID will be created and saved to the file if one doesn't exist.
      * @returns A Promise that resolves to the unique ID of the file, or an empty string if none is found/created.
      */
-    public async getUniqueIdentifier(file: TFile, createIfMissing: boolean = false): Promise<string> {
+    public async getUniqueIdentifier(file: TFile, isIDMissing: boolean = false): Promise<string> {
         if (this.settings.identifierSource === 'file-path') {
             return file.path;
         }
@@ -381,16 +383,23 @@ export default class LastEditLocationPlugin extends Plugin {
         const idName = this.getCurrentIdName();
         if (!idName) return '';
 
+        // Optimization for read-only case: use the metadata cache.
+        if (!isIDMissing) {
+            const cache = this.app.metadataCache.getFileCache(file);
+            const fmValue = cache?.frontmatter?.[idName];
+            return fmValue ? String(fmValue) : '';
+        }
+
+        // Read-write case: use processFrontMatter to ensure atomicity.
         let fileUUID = '';
         // Use `processFrontMatter` to safely read and modify the file's metadata.
         // This is the recommended way to interact with frontmatter. Obsidian is smart enough
         // to only write to the file if the frontmatter object is actually mutated.
         await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
             // Check if the ID field already exists in the frontmatter.
-            if (frontmatter && frontmatter[idName]) {
-                // If the ID already exists, just grab it.
+            if (frontmatter?.[idName]) {
                 fileUUID = String(frontmatter[idName]);
-            } else if (this.settings.identifierSource === 'plugin-generated-UUID' && createIfMissing) {
+            } else if (this.settings.identifierSource === 'plugin-generated-UUID') {
                 // If it doesn't exist, the settings allow it, AND we've been explicitly told to create it,
                 // then generate a new V1 UUID.
                 const newUUID = uuidv1();
@@ -399,49 +408,10 @@ export default class LastEditLocationPlugin extends Plugin {
                 fileUUID = newUUID;
             }
             // If the source is 'user-provided-field' and the field doesn't exist, we do nothing and fileUUID remains empty.
-            // If 'plugin-generated-UUID' is the source but createIfMissing is false, we also do nothing, preventing file modification on open.
+            // If 'plugin-generated-UUID' is the source but isIDMissing is false, we also do nothing, preventing file modification on open.
         });
         return fileUUID;
     }
-}
-
-/**
- * A helper function that limits how often another function can be executed.
- * This is useful for performance-intensive tasks like saving to disk or making API calls.
- * @param func The function to debounce.
- * @param wait The time to wait in milliseconds before executing.
- * @param immediate If true, trigger the function on the leading edge of the wait interval instead of the trailing edge.
- */
-function debounce(func: (...args: any[]) => any, wait: number, immediate: boolean = false) {
-    let timeout: NodeJS.Timeout | null;
-
-    return function(this: any, ...args: any[]) {
-        const context = this; // `this` and `args` are preserved from the original call.
-        
-        // This function is what gets called after the `wait` time has passed.
-        const later = function() {
-            timeout = null; // Clear the timeout so it can be set again.
-            if (!immediate) {
-                // If not immediate, call the original function now.
-                func.apply(context, args);
-            }
-        };
-
-        const callNow = immediate && !timeout; // Determine if we should call the function immediately.
-
-        if (timeout) {
-            // If a timeout is already scheduled, clear it to reset the timer.
-            clearTimeout(timeout);
-        }
-
-        // Set a new timeout.
-        timeout = setTimeout(later, wait);
-
-        if (callNow) {
-            // If it's an immediate call, execute the function right away.
-            func.apply(context, args);
-        }
-    };
 }
 
 // Defines the settings tab for the plugin, which appears in the main Obsidian settings window.
