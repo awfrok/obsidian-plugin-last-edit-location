@@ -1,6 +1,6 @@
 {
 	"name": "last-edit-location",
-	"version": "0.1.4",
+	"version": "0.1.4.4",
 	"description": "When opening a note, put the cursor at the last edit location.",
 	"main": "main.js",
 	"scripts": {

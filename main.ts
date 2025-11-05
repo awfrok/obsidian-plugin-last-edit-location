@@ -1,5 +1,5 @@
 //
-// last commit: 0.1.4.3
+// last commit: 0.1.4.4
 // update for code consistency
 //
 // to do
@@ -150,7 +150,7 @@ export default class LastEditLocationPlugin extends Plugin {
                 }
 
                 if (!this.isFileIncluded(file)) {
-                    new Notice("Last Edit Location is not active for this file (folder not included).");
+                    new Notice("Last edit location is not active for this file (folder not included).");
                     return;
                 }
 
@@ -187,7 +187,7 @@ export default class LastEditLocationPlugin extends Plugin {
             this.registerEvent(
                 this.app.workspace.on('editor-change', (editor, markdownView) => {
                     // When a change occurs, we save the new cursor position.
-                    this.saveLastEditLocation(editor, markdownView.file);
+                    void this.saveLastEditLocation(editor, markdownView.file);
                 })
             );
 
@@ -207,7 +207,7 @@ export default class LastEditLocationPlugin extends Plugin {
             if (activeFile) {
                 // We wrap this in an async IIFE (Immediately Invoked Function Expression) 
                 // to use await with shouldRestoreCursor.
-                (async () => {
+                void (async () => {
                     const uniqueIdentifier = await this.shouldRestoreCursor(activeFile);
                     if (uniqueIdentifier) {
                         this.restoreLastEditLocation(uniqueIdentifier);
